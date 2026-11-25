@@ -122,3 +122,17 @@ create policy barrier_bot_all on barrier.events for all to barrier_bot using (tr
 create policy barrier_bot_all on barrier.jobs for all to barrier_bot using (true) with check (true);
 create policy barrier_bot_all on barrier.client_connections for all to barrier_bot using (true) with check (true);
 create policy barrier_bot_all on barrier.spend for all to barrier_bot using (true) with check (true);
+
+-- Territory Scans (migration barrier_scans). The token is the private link texted to the prospect.
+create table if not exists barrier.scans (
+  id         bigserial primary key,
+  token      text not null unique,
+  client_id  bigint references barrier.clients(id),
+  job_id     bigint references barrier.jobs(id),
+  data       jsonb not null,
+  created_at timestamptz not null default now()
+);
+alter table barrier.scans enable row level security;
+grant select, insert, update, delete on barrier.scans to barrier_bot;
+grant usage, select on sequence barrier.scans_id_seq to barrier_bot;
+create policy barrier_bot_all on barrier.scans for all to barrier_bot using (true) with check (true);

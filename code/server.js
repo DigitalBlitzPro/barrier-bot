@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { withDb } = require('./shared/db');
 const { handle } = require('./routes');
 const { startWorker } = require('./worker');
+const { renderScan } = require('./scanPage');
 
 const MAX_BODY = 1024 * 1024;
 
@@ -27,6 +28,29 @@ function splitUrl(url) {
   const clean = raw.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/^[^/]*?\/hook\//, '/hook/');
   const m = /^\/hook\/([^/?]+)(?:\/([^?]*?))?\/?(?:\?.*)?$/.exec(clean);
   return m ? { secret: m[1].trim(), path: (m[2] || '').trim() } : null;
+}
+
+async function checkKeys() {
+  const out = {};
+  const t = (fn) => fn().then(() => 'ok', (e) => String(e.message || e).replace(/Bearer\s+\S+/g, 'Bearer [hidden]').slice(0, 160));
+  out.dataforseo = process.env.DATAFORSEO_LOGIN ? await t(async () => {
+    const auth = Buffer.from(`${process.env.DATAFORSEO_LOGIN}:${process.env.DATAFORSEO_PASSWORD}`).toString('base64');
+    const r = await fetch('https://api.dataforseo.com/v3/appendix/user_data', { headers: { Authorization: `Basic ${auth}` }, signal: AbortSignal.timeout(20000) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.status_code !== 20000) throw new Error(`${r.status} ${j.status_message || ''}`);
+    out.dataforseo_balance_usd = j.tasks?.[0]?.result?.[0]?.money?.balance ?? null;
+  }) : 'missing';
+  out.anthropic = process.env.ANTHROPIC_API_KEY ? await t(async () => {
+    const r = await fetch('https://api.anthropic.com/v1/models?limit=1', { headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' }, signal: AbortSignal.timeout(20000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  }) : 'missing';
+  out.ghl = process.env.GHL_LOCATION_TOKEN ? await t(async () => {
+    const { Ghl } = require('./shared/ghl');
+    await new Ghl().fieldId('contact.barrier_scan_link');
+  }) : 'missing';
+  out.secrets_key = (process.env.BARRIER_SECRETS_KEY || '').length >= 32 ? 'ok' : 'missing or too short';
+  out.webhook_secret = (process.env.BARRIER_WEBHOOK_SECRET || '').length >= 24 ? 'ok' : 'missing or too short';
+  return out;
 }
 
 // Workflow name -> path, for calls that arrive without a path.
@@ -71,6 +95,24 @@ function readJson(req) {
 function createServer({ runWithDb = withDb } = {}) {
   return http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true });
+    // A prospect's Territory Scan page.
+    const scanMatch = req.method === 'GET' && /^\/scan\/([A-Za-z0-9_-]{10,40})\/?(?:\?.*)?$/.exec(req.url || '');
+    if (scanMatch) {
+      try {
+        const r = await runWithDb((db) => db.query('select data from barrier.scans where token = $1', [scanMatch[1]]));
+        const row = r && r.rows[0];
+        if (!row) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Scan not found'); }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=300', 'X-Robots-Tag': 'noindex' });
+        return res.end(renderScan(row.data));
+      } catch (e) {
+        console.error('[scan page]', e.message);
+        res.writeHead(500, { 'Content-Type': 'text/plain' }); return res.end('Something went wrong loading this scan.');
+      }
+    }
+    // Key check: tests each outside service with a free, read-only call. Shows only ok / the error, never a key.
+    if (req.method === 'GET' && req.url === '/health/keys') {
+      return send(res, 200, await checkKeys());
+    }
     // Database check: says whether the bot can reach Supabase and see its tables. Shows no secrets.
     if (req.method === 'GET' && req.url === '/health/db') {
       try {
