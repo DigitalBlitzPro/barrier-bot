@@ -99,3 +99,10 @@ create table if not exists barrier.spend (
 -- Not exposed to the public API: only the bot's direct database connection uses these tables.
 revoke all on all tables in schema barrier from anon, authenticated;
 revoke usage on schema barrier from anon, authenticated;
+
+-- Row Level Security on, with no policies: the API roles see nothing. The bot connects as the table owner, which RLS does not restrict.
+alter table barrier.clients enable row level security;
+alter table barrier.events enable row level security;
+alter table barrier.jobs enable row level security;
+alter table barrier.client_connections enable row level security;
+alter table barrier.spend enable row level security;

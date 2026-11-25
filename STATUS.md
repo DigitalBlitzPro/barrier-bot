@@ -9,11 +9,10 @@
 
 - Live database (2026-11-25): the `barrier` schema is applied in Supabase project `digital-blitz-seo-agent`
   (gsqhoctzennxffbbbxxr) as migration `barrier_base`; the five tables exist and are empty. The public API roles
-  (anon, authenticated) have no access to the schema. Tänder's tables were not touched.
+  (anon, authenticated) have no access to the schema. Tänder's tables were not touched. Row Level Security is on for all five (migration `barrier_enable_rls`, Kenny's OK 2026-11-25); the routes still worked with it on in the local test.
 
 ## Not done yet
 - Not deployed. Needs a Railway service and the three variables in `.env.example`.
-- Supabase flags Row Level Security as off on the five tables. Turning it on is Kenny's call (see the chat of 2026-11-25).
 - No bots yet: every queued job waits until its handler exists.
 
 ## Next
