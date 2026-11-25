@@ -18,7 +18,7 @@ The one place for every rule. Newest decisions win; date each one.
 - Customer-facing name: "Blitz Barrier", never just "Barrier".
 
 ## Data (2026-11-24)
-- Software API keys are encrypted before they are stored (AES-256-GCM, `BARRIER_SECRETS_KEY`) and are never written to
+- Software API keys are encrypted before they are stored (AES-256-GCM, key derived from `BARRIER_SECRETS_KEY`; changing that variable makes stored keys unreadable) and are never written to
   the event log in plain text. GHL clears its copy within 10 minutes (workflow C12).
 - The client's GHL sub-account is created after the onboarding form arrives (C3, `client/update`), because it needs the EIN.
 - Every webhook body is kept in `barrier.events`, so a job can be re-run from what GHL actually sent.

@@ -1,10 +1,11 @@
-// Encrypts software API keys before they are stored. Key: BARRIER_SECRETS_KEY (32 bytes, base64).
+// Encrypts software API keys before they are stored. Key: BARRIER_SECRETS_KEY, any random string of 32+ characters
+// (Railway can generate one with ${{ secret(48) }}); it is hashed to a 32-byte AES key.
 const crypto = require('crypto');
 
 function key() {
-  const k = Buffer.from(process.env.BARRIER_SECRETS_KEY || '', 'base64');
-  if (k.length !== 32) throw new Error('BARRIER_SECRETS_KEY must be 32 bytes, base64');
-  return k;
+  const raw = process.env.BARRIER_SECRETS_KEY || '';
+  if (raw.length < 32) throw new Error('BARRIER_SECRETS_KEY must be at least 32 characters');
+  return crypto.createHash('sha256').update(raw).digest();
 }
 
 function encrypt(plain) {
