@@ -20,8 +20,10 @@ function secretOk(given) {
 }
 
 // /hook/<secret>/<path...> -> { secret, path }
+// A backslash (raw or encoded) is treated as a slash, in case a GHL step was typed with "\" instead of "/".
 function splitUrl(url) {
-  const m = /^\/hook\/([^/]+)\/(.+?)\/?(?:\?.*)?$/.exec(url || '');
+  const clean = String(url || '').replace(/%5c/gi, '/').replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  const m = /^\/hook\/([^/?]+)\/([^?]+?)\/?(?:\?.*)?$/.exec(clean);
   return m ? { secret: decodeURIComponent(m[1]), path: m[2] } : null;
 }
 
