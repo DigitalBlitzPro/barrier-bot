@@ -106,3 +106,19 @@ alter table barrier.events enable row level security;
 alter table barrier.jobs enable row level security;
 alter table barrier.client_connections enable row level security;
 alter table barrier.spend enable row level security;
+
+-- A login just for Barrier Bot (migration barrier_bot_role). Kenny sets its password in the Supabase SQL Editor;
+-- it is never stored in this repo. Connection string: postgresql://barrier_bot.<project-ref>:<password>@<pooler-host>:5432/postgres
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'barrier_bot') then create role barrier_bot login noinherit; end if;
+end $$;
+grant usage on schema barrier to barrier_bot;
+grant select, insert, update, delete on all tables in schema barrier to barrier_bot;
+grant usage, select on all sequences in schema barrier to barrier_bot;
+alter default privileges in schema barrier grant select, insert, update, delete on tables to barrier_bot;
+alter default privileges in schema barrier grant usage, select on sequences to barrier_bot;
+create policy barrier_bot_all on barrier.clients for all to barrier_bot using (true) with check (true);
+create policy barrier_bot_all on barrier.events for all to barrier_bot using (true) with check (true);
+create policy barrier_bot_all on barrier.jobs for all to barrier_bot using (true) with check (true);
+create policy barrier_bot_all on barrier.client_connections for all to barrier_bot using (true) with check (true);
+create policy barrier_bot_all on barrier.spend for all to barrier_bot using (true) with check (true);
