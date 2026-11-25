@@ -22,9 +22,16 @@ function secretOk(given) {
 // /hook/<secret>/<path...> -> { secret, path }
 // A backslash (raw or encoded) is treated as a slash, in case a GHL step was typed with "\" instead of "/".
 function splitUrl(url) {
-  const clean = String(url || '').replace(/%5c/gi, '/').replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  let raw = String(url || '');
+  try { raw = decodeURIComponent(raw); } catch { /* keep as is */ }
+  const clean = raw.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/^[^/]*?\/hook\//, '/hook/');
   const m = /^\/hook\/([^/?]+)\/([^?]+?)\/?(?:\?.*)?$/.exec(clean);
-  return m ? { secret: decodeURIComponent(m[1]), path: m[2] } : null;
+  return m ? { secret: m[1].trim(), path: m[2].trim() } : null;
+}
+
+// Shows the shape of a URL without the secret: /hook/<40 chars>/territory-scan
+function maskUrl(url) {
+  return String(url || '').replace(/(hook(?:\/|%2f))([^/\\%?]{6,})/i, (_, a, sec) => `${a}<${sec.length} chars>`).slice(0, 200);
 }
 
 function send(res, status, body) {
@@ -45,7 +52,11 @@ function createServer({ runWithDb = withDb } = {}) {
   return http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true });
     const parts = splitUrl(req.url);
-    if (req.method !== 'POST' || !parts) return send(res, 404, { error: 'not found' });
+    if (req.method !== 'POST' || !parts) {
+      // Log what arrived (secret masked) so a wrong GHL step can be diagnosed from Railway's logs.
+      if (/hook/i.test(req.url || '')) console.warn(`[404] ${req.method} ${maskUrl(req.url)}`);
+      return send(res, 404, { error: 'not found', method: req.method, got: maskUrl(req.url) });
+    }
     if (!secretOk(parts.secret)) return send(res, 401, { error: 'unauthorized' });
     let body;
     try { body = await readJson(req); } catch { return send(res, 400, { error: 'bad json' }); }

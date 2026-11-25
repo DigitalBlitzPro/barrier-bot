@@ -11,6 +11,8 @@ test('splitUrl reads the secret and path', () => {
   assert.deepEqual(splitUrl('/hook/s3cret%5Cterritory-scan'), { secret: 's3cret', path: 'territory-scan' });
   assert.deepEqual(splitUrl('/hook/s3cret\\territory-scan'), { secret: 's3cret', path: 'territory-scan' });
   assert.deepEqual(splitUrl('/hook/s3cret//client/create'), { secret: 's3cret', path: 'client/create' });
+  assert.deepEqual(splitUrl('/hook%2Fs3cret%2Fterritory-scan'), { secret: 's3cret', path: 'territory-scan' });
+  assert.deepEqual(splitUrl('/hook/s3cret%20/territory-scan'), { secret: 's3cret', path: 'territory-scan' });
 });
 
 test('secretOk refuses a wrong, short or missing secret', () => {
