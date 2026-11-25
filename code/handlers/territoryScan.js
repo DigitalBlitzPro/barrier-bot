@@ -89,10 +89,11 @@ async function writeVerdict(scan) {
     const r = await ask({
       system: 'You write the 2-3 sentence verdict at the top of a pest control company\'s Territory Scan. Voice: funny, punchy, pest-control humor (bugs, barriers, infestations), talking to the owner. Use only the numbers given; never invent a number, name or claim. No hashtags, no emojis. Name a competitor only if mapLeader is given. End on what they could win, not doom.',
       prompt: `Facts (JSON): ${JSON.stringify(facts)}\nWrite the verdict.`,
-      maxTokens: 200,
+      maxTokens: 1000,
     });
     return { text: r.text, usd: r.usd };
-  } catch {
+  } catch (e) {
+    console.log(`[scan] verdict fell back to the template: ${e.message}`);
     return { text: `${facts.company} shows up in the top 3 on Google Maps at ${facts.mapTop3Pct}% of the 49 spots we checked around ${facts.city}, and AI assistants named you in ${facts.aiMentioned} of ${facts.aiAsked} answers. That's a lot of territory still up for grabs.`, usd: 0 };
   }
 }
@@ -118,7 +119,8 @@ async function territoryScan({ db, job, deps = {} }) {
     if (!first) throw new Error(`could not place "${city}" on the map`);
     center = { lat: first.latitude, lng: first.longitude };
   }
-  const state = own?.address_info?.region || null;
+  // Service-area businesses hide their address, so the state may come from other listings in the same search.
+  const state = own?.address_info?.region || (found.items || []).map((i) => i.address_info?.region).find(Boolean) || null;
   const business = {
     name: own?.title || company, cid: own?.cid || null, domain: own?.domain || c.website || null,
     rating: own?.rating?.value ?? null, reviews: own?.rating?.votes_count ?? null, onMaps: !!own,

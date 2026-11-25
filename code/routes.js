@@ -80,9 +80,9 @@ const ROUTES = {
     return { clientId: c.id };
   },
   // C12: software API key from the Software Connect form. Encrypted before it touches the database.
-  'client/software': async ({ db, body, parsed, eventId }) => {
+  'client/software': async ({ db, parsed, eventId, original }) => {
     const c = await upsertClient(db, parsed.contactId, {}, {});
-    const f = parsed.raw;
+    const f = parseGhlWebhook(original).raw; // the keys themselves are only in the unredacted body
     const software = f['Barrier - Job Software'] || 'Other';
     const secret = JSON.stringify({ key: f['Barrier - Software API Key'] || null, token: f['Barrier - Software API Token'] || null });
     await db.query(
@@ -111,27 +111,38 @@ const ROUTES = {
   },
 };
 
-// Keys from the Software Connect form are never saved in plain text, not even in the event log.
-const SECRET_FIELDS = ['Barrier - Software API Key', 'Barrier - Software API Token'];
+// GHL sends EVERY custom field on the contact, including fields from Kenny's other offers (logins, passwords,
+// license photos). Only standard contact fields, "Barrier - " fields, customData and workflow info are kept.
+// Software API keys are never kept in plain text, not even in the event log.
+// The job-software login (Barrier - Software Username/Password) goes to Kenny's password manager, never to the bot.
+const SECRET_FIELDS = ['Barrier - Software API Key', 'Barrier - Software API Token', 'Barrier - Software Username', 'Barrier - Software Password'];
+const KEEP = new Set(['contact_id', 'first_name', 'last_name', 'full_name', 'name', 'email', 'phone', 'company_name', 'tags',
+  'address1', 'city', 'state', 'postal_code', 'country', 'timezone', 'contact_source', 'contact_type', 'date_created',
+  'location', 'workflow', 'customData']);
 function redact(body) {
-  const copy = JSON.parse(JSON.stringify(body || {}));
+  const copy = {};
+  for (const [k, v] of Object.entries(body || {})) if (KEEP.has(k) || k.startsWith('Barrier - ')) copy[k] = v;
+  if (copy.customData) copy.customData = { ...copy.customData };
   for (const obj of [copy, copy.customData]) if (obj && typeof obj === 'object') for (const k of SECRET_FIELDS) if (k in obj) obj[k] = '[redacted]';
-  return copy;
+  return JSON.parse(JSON.stringify(copy));
 }
 
 async function handle(db, path, body) {
   const route = ROUTES[path];
   if (!route) {
     // Keep it, so a call we can't place is never lost and can be looked at.
-    const p0 = parseGhlWebhook(body);
-    const eventId = await saveEvent(db, '_unknown', p0.contactId, p0.locationId, redact(body));
+    const clean = redact(body);
+    const p0 = parseGhlWebhook(clean);
+    const eventId = await saveEvent(db, '_unknown', p0.contactId, p0.locationId, clean);
     return { status: 404, body: { error: 'unknown path', path, eventId } };
   }
+  const original = body;
+  body = redact(body);
   const parsed = parseGhlWebhook(body);
   const needsContact = !['photo', 'review/do-not-ask'].includes(path);
   if (needsContact && !parsed.contactId) return { status: 400, body: { error: 'no contact_id' } };
-  const eventId = await saveEvent(db, path, parsed.contactId, parsed.locationId, redact(body));
-  const result = await route({ db, body, parsed, eventId });
+  const eventId = await saveEvent(db, path, parsed.contactId, parsed.locationId, body);
+  const result = await route({ db, body, parsed, eventId, original });
   return { status: 200, body: { ok: true, eventId, ...result } };
 }
 

@@ -14,6 +14,7 @@ async function ask({ model = 'claude-haiku-5-5', system, prompt, maxTokens = 400
   const text = (json.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
   const p = PRICES[model] || { input: 0, output: 0 };
   const usd = ((json.usage?.input_tokens || 0) * p.input + (json.usage?.output_tokens || 0) * p.output) / 1e6;
+  if (!text) throw new Error(`Anthropic: empty answer (stop_reason ${json.stop_reason || 'unknown'})`);
   return { text, usd };
 }
 

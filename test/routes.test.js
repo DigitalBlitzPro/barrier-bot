@@ -58,3 +58,14 @@ test('plan comes from the tags; redact blanks keys in customData too', () => {
   assert.equal(r.customData['Barrier - Software API Token'], '[redacted]');
   assert.equal(decrypt(encrypt('hello')), 'hello');
 });
+
+test('only standard and Barrier fields are kept from a GHL body', async () => {
+  const db = fakeDb();
+  await handle(db, 'territory-scan', { contact_id: 'c1', company_name: 'X', 'CRM Password': 'hunter2', 'Front Of Drivers License': 'url', 'Barrier - Registered City': 'Gig Harbor', customData: { city: 'Gig Harbor' } });
+  for (const c of db.calls) assert.ok(!JSON.stringify(c.params).includes('hunter2'), c.sql.slice(0, 40));
+  const ev = db.calls.find((c) => /barrier.events/.test(c.sql));
+  const saved = JSON.parse(ev.params[3]);
+  assert.equal(saved['Barrier - Registered City'], 'Gig Harbor');
+  assert.equal(saved.customData.city, 'Gig Harbor');
+  assert.equal(saved['Front Of Drivers License'], undefined);
+});
