@@ -7,9 +7,13 @@
   second job; a late Territory Scan does not move an onboarded client back; the software key is stored only encrypted;
   a failed job goes back to pending with a later retry time.
 
+- Live database (2026-11-25): the `barrier` schema is applied in Supabase project `digital-blitz-seo-agent`
+  (gsqhoctzennxffbbbxxr) as migration `barrier_base`; the five tables exist and are empty. The public API roles
+  (anon, authenticated) have no access to the schema. Tänder's tables were not touched.
+
 ## Not done yet
-- Not deployed. Needs: a Supabase project (or the `barrier` schema in an existing one), a Railway service, and the three
-  variables in `.env.example`.
+- Not deployed. Needs a Railway service and the three variables in `.env.example`.
+- Supabase flags Row Level Security as off on the five tables. Turning it on is Kenny's call (see the chat of 2026-11-25).
 - No bots yet: every queued job waits until its handler exists.
 
 ## Next

@@ -95,3 +95,7 @@ create table if not exists barrier.spend (
   usd        numeric(10,4) not null,
   at         timestamptz not null default now()
 );
+
+-- Not exposed to the public API: only the bot's direct database connection uses these tables.
+revoke all on all tables in schema barrier from anon, authenticated;
+revoke usage on schema barrier from anon, authenticated;
