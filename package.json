@@ -1,0 +1,14 @@
+{
+  "name": "barrier-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blitz Barrier Plan bot: local SEO, Google Maps and AI recommendations for pest control clients, run from GHL",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node code/server.js",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}
