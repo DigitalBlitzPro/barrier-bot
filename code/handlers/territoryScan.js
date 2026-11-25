@@ -78,7 +78,7 @@ const addDays = (d, n) => new Date(d.getTime() + n * 86400000).toISOString().sli
 
 async function writeVerdict(scan) {
   const facts = {
-    company: scan.business.name, city: scan.city,
+    ownerFirstName: scan.firstName || null, company: scan.business.name, city: scan.city,
     mapTop3Pct: scan.grid.top3Pct, avgRank: scan.grid.avgRank, notFoundPoints: scan.grid.notFound,
     mapLeader: scan.grid.leaders[0]?.name || null, mapLeaderSpots: scan.grid.leaders[0]?.spots || 0,
     aiMentioned: scan.ai.mentioned, aiAsked: scan.ai.asked,
@@ -87,7 +87,7 @@ async function writeVerdict(scan) {
   };
   try {
     const r = await ask({
-      system: 'You write the 2-3 sentence verdict at the top of a pest control company\'s Territory Scan. Voice: funny, punchy, pest-control humor (bugs, barriers, infestations), talking to the owner. Use only the numbers given; never invent a number, name or claim. No hashtags, no emojis. Name a competitor only if mapLeader is given. End on what they could win, not doom.',
+      system: 'You write the 2-3 sentence verdict at the top of a pest control company\'s Territory Scan. Voice: funny, punchy, pest-control humor (bugs, barriers, infestations), talking to the owner. Use only the numbers given; never invent a number, name or claim. If ownerFirstName is given, address the owner by that first name; otherwise use the company name. No hashtags, no emojis. Name a competitor only if mapLeader is given. End on what they could win, not doom.',
       prompt: `Facts (JSON): ${JSON.stringify(facts)}\nWrite the verdict.`,
       maxTokens: 1000,
     });
@@ -155,7 +155,8 @@ async function territoryScan({ db, job, deps = {} }) {
   const ai = { asked: ok.length, mentioned: ok.filter((a) => a.mentioned).length, answers };
 
   // 4. Verdict, save, hand back to GHL.
-  const scan = { version: 1, company, city, state, keyword: KEYWORD, business, grid, points, ai, engines: ENGINES, createdAt: new Date().toISOString() };
+  const firstName = (c.raw_fields && c.raw_fields.first_name) || (c.owner_name ? String(c.owner_name).split(' ')[0] : null);
+  const scan = { version: 1, firstName, company, city, state, keyword: KEYWORD, business, grid, points, ai, engines: ENGINES, createdAt: new Date().toISOString() };
   const verdict = await writeVerdict(scan);
   scan.verdict = verdict.text;
   const offerDeadline = addDays(new Date(), OFFER_DAYS);
