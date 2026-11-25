@@ -4,13 +4,13 @@
 // Unknown fields are kept in raw_fields, so a renamed field never loses data.
 
 const FIELD_MAP = {
-  company: ['company_name', 'Company Name'],
+  company: ['company_name', 'Company Name', 'company'],
   owner_name: ['full_name', 'name'],
   phone: ['phone'],
   email: ['email'],
   website: ['Barrier - Website URL', 'website'],
   website_platform: ['Barrier - Website Platform'],
-  gbp_url: ['Barrier - GBP URL'],
+  gbp_url: ['Barrier - GBP URL', 'gbp_url', 'gbp'],
   registered_city: ['Barrier - Registered City'],
   service_cities: ['Barrier - Service Cities'],
   services_offered: ['Barrier - Services Offered'],

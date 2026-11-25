@@ -11,10 +11,10 @@
   (gsqhoctzennxffbbbxxr) as migration `barrier_base`; the five tables exist and are empty. The public API roles
   (anon, authenticated) have no access to the schema. Tänder's tables were not touched. Row Level Security is on for all five (migration `barrier_enable_rls`, Kenny's OK 2026-11-25); the routes still worked with it on in the local test.
 
+- **Live (2026-11-25):** Railway service at https://barrier-bot-production.up.railway.app (`/health`, `/health/db`). GHL's "BARRIER | Bot URL" points at it. A real Test workflow run of S4 on Kenny's contact arrived: event saved, Kenny saved as a prospect, one `territory_scan` job pending. GHL sometimes drops the path after the Bot URL; the bot then works the path out from the workflow name.
+
 ## Not done yet
-- Not deployed. Needs a Railway service and the three variables in `.env.example`.
 - No bots yet: every queued job waits until its handler exists.
 
 ## Next
-1. Deploy the base on Railway and point GHL's "BARRIER | Bot URL" custom value at it; fire one test webhook.
-2. Territory Scan bot (map grid + AI check + one-page scan for prospects), then the baseline audit.
+1. Territory Scan bot (map grid + AI check + one-page scan for prospects), then the baseline audit.

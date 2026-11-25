@@ -18,7 +18,7 @@ The one place for every rule. Newest decisions win; date each one.
 - Customer-facing name: "Blitz Barrier", never just "Barrier".
 
 ## Data (2026-11-24)
-- The bot logs in to Supabase as its own role, `barrier_bot`, which can only use the `barrier` tables (2026-11-25). It never uses the shared `postgres` password, so Tänder is unaffected by anything Barrier does.
+- The bot connects to Supabase with the project's main `postgres` login, the same one Tänder uses (Kenny, 2026-11-25). A limited `barrier_bot` login also exists (it can only use the `barrier` tables) if Kenny ever wants to switch; it has no password until he sets one. If the main password is ever reset, update Railway's SUPABASE_DB_URL and Tänder's GitHub secret together.
 - Software API keys are encrypted before they are stored (AES-256-GCM, key derived from `BARRIER_SECRETS_KEY`; changing that variable makes stored keys unreadable) and are never written to
   the event log in plain text. GHL clears its copy within 10 minutes (workflow C12).
 - The client's GHL sub-account is created after the onboarding form arrives (C3, `client/update`), because it needs the EIN.
