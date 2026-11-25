@@ -121,7 +121,12 @@ function redact(body) {
 
 async function handle(db, path, body) {
   const route = ROUTES[path];
-  if (!route) return { status: 404, body: { error: 'unknown path' } };
+  if (!route) {
+    // Keep it, so a call we can't place is never lost and can be looked at.
+    const p0 = parseGhlWebhook(body);
+    const eventId = await saveEvent(db, '_unknown', p0.contactId, p0.locationId, redact(body));
+    return { status: 404, body: { error: 'unknown path', path, eventId } };
+  }
   const parsed = parseGhlWebhook(body);
   const needsContact = !['photo', 'review/do-not-ask'].includes(path);
   if (needsContact && !parsed.contactId) return { status: 400, body: { error: 'no contact_id' } };

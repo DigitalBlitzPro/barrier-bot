@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { createServer, splitUrl, secretOk } = require('../code/server');
+const { createServer, splitUrl, secretOk, pathFromWorkflow } = require('../code/server');
 
 const SECRET = 'a'.repeat(32);
 
@@ -8,6 +8,8 @@ test('splitUrl reads the secret and path', () => {
   assert.deepEqual(splitUrl('/hook/s3cret/client/create'), { secret: 's3cret', path: 'client/create' });
   assert.deepEqual(splitUrl('/hook/s3cret/territory-scan/?x=1'), { secret: 's3cret', path: 'territory-scan' });
   assert.equal(splitUrl('/client/create'), null);
+  assert.deepEqual(splitUrl('/hook/s3cret'), { secret: 's3cret', path: '' });
+  assert.deepEqual(splitUrl('/hook/s3cret/'), { secret: 's3cret', path: '' });
   assert.deepEqual(splitUrl('/hook/s3cret%5Cterritory-scan'), { secret: 's3cret', path: 'territory-scan' });
   assert.deepEqual(splitUrl('/hook/s3cret\\territory-scan'), { secret: 's3cret', path: 'territory-scan' });
   assert.deepEqual(splitUrl('/hook/s3cret//client/create'), { secret: 's3cret', path: 'client/create' });
@@ -41,4 +43,23 @@ test('a good webhook reaches the handler; a bad secret does not', async () => {
   const bad = await call(createServer({ runWithDb: fake }), `/hook/${'b'.repeat(32)}/client/create`, { contact_id: 'c1' });
   assert.equal(bad.status, 401);
   assert.equal(ran, 1);
+});
+
+test('pathFromWorkflow places a call that arrived without a path', () => {
+  const w = (name) => pathFromWorkflow({ workflow: { name } });
+  assert.equal(w('BARRIER | S4 Territory Scan'), 'territory-scan');
+  assert.equal(w('BARRIER | C1 Purchase'), 'client/create');
+  assert.equal(w('BARRIER | C12 Software Connect'), 'client/software');
+  assert.equal(w('BARRIER | C5b Kickoff Outcome'), 'client/activate');
+  assert.equal(w('BARRIER | Negative Review Approval'), 'review/approval');
+  assert.equal(w('Something else'), null);
+});
+
+test('a call with only the Bot URL is routed by its workflow name', async () => {
+  process.env.BARRIER_WEBHOOK_SECRET = SECRET;
+  let seen = null;
+  const fake = async (fn) => { seen = fn; return { status: 200, body: { ok: true } }; };
+  const r = await call(createServer({ runWithDb: fake }), `/hook/${SECRET}`, { contact_id: 'c1', workflow: { name: 'BARRIER | S4 Territory Scan' } });
+  assert.equal(r.status, 200);
+  assert.ok(seen);
 });

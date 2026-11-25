@@ -25,8 +25,28 @@ function splitUrl(url) {
   let raw = String(url || '');
   try { raw = decodeURIComponent(raw); } catch { /* keep as is */ }
   const clean = raw.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/^[^/]*?\/hook\//, '/hook/');
-  const m = /^\/hook\/([^/?]+)\/([^?]+?)\/?(?:\?.*)?$/.exec(clean);
-  return m ? { secret: m[1].trim(), path: m[2].trim() } : null;
+  const m = /^\/hook\/([^/?]+)(?:\/([^?]*?))?\/?(?:\?.*)?$/.exec(clean);
+  return m ? { secret: m[1].trim(), path: (m[2] || '').trim() } : null;
+}
+
+// Workflow name -> path, for calls that arrive without a path.
+const WORKFLOW_PATHS = [
+  [/\bS4\b|territory scan/i, 'territory-scan'],
+  [/\bC12\b|software connect/i, 'client/software'],
+  [/\bC1\b|purchase/i, 'client/create'],
+  [/\bC3\b|onboarding submitted/i, 'client/update'],
+  [/\bC5b\b|kickoff outcome/i, 'client/activate'],
+  [/\bC8\b|payment failed/i, 'client/pause'],
+  [/\bC9\b|cancelled/i, 'client/offboard'],
+  [/review done/i, 'review/done'],
+  [/negative review/i, 'review/approval'],
+  [/do not ask/i, 'review/do-not-ask'],
+  [/tech photo/i, 'photo'],
+];
+function pathFromWorkflow(body) {
+  const name = String((body && body.workflow && body.workflow.name) || (body && body.customData && body.customData.workflow) || '');
+  const hit = WORKFLOW_PATHS.find(([re]) => re.test(name));
+  return hit ? hit[1] : null;
 }
 
 // Shows the shape of a URL without the secret: /hook/<40 chars>/territory-scan
@@ -60,6 +80,9 @@ function createServer({ runWithDb = withDb } = {}) {
     if (!secretOk(parts.secret)) return send(res, 401, { error: 'unauthorized' });
     let body;
     try { body = await readJson(req); } catch { return send(res, 400, { error: 'bad json' }); }
+    // GHL sometimes sends only the Bot URL without the path after it. Every GHL webhook body names its
+    // workflow, so the path can be worked out from that instead.
+    if (!parts.path) parts.path = pathFromWorkflow(body) || '_unknown';
     try {
       const out = await runWithDb((db) => handle(db, parts.path, body));
       if (!out) return send(res, 503, { error: 'no database configured' });
@@ -77,4 +100,4 @@ if (require.main === module) {
   startWorker();
 }
 
-module.exports = { createServer, splitUrl, secretOk };
+module.exports = { createServer, splitUrl, secretOk, pathFromWorkflow };
