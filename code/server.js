@@ -71,6 +71,16 @@ function readJson(req) {
 function createServer({ runWithDb = withDb } = {}) {
   return http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true });
+    // Database check: says whether the bot can reach Supabase and see its tables. Shows no secrets.
+    if (req.method === 'GET' && req.url === '/health/db') {
+      try {
+        const r = await runWithDb((db) => db.query('select count(*)::int as events from barrier.events'));
+        if (!r) return send(res, 503, { ok: false, error: 'SUPABASE_DB_URL is not set' });
+        return send(res, 200, { ok: true, events: r.rows[0].events });
+      } catch (e) {
+        return send(res, 500, { ok: false, error: String(e.code || '') + ' ' + String(e.message || '').replace(/postgres(ql)?:\/\/\S+/gi, '[url]').slice(0, 200) });
+      }
+    }
     const parts = splitUrl(req.url);
     if (req.method !== 'POST' || !parts) {
       // Log what arrived (secret masked) so a wrong GHL step can be diagnosed from Railway's logs.
