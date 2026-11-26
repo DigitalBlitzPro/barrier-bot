@@ -24,3 +24,9 @@ The one place for every rule. Newest decisions win; date each one.
 - The client's GHL sub-account is created after the onboarding form arrives (C3, `client/update`), because it needs the EIN.
 - Every webhook body is kept in `barrier.events`, so a job can be re-run from what GHL actually sent, but only standard contact fields, "Barrier - " fields, customData and workflow info. GHL sends every custom field on the contact, including logins and license photos from Kenny's other offers; those are dropped before saving (2026-11-25). The software login and API key fields are blanked.
 - A client's status only moves forward (prospect, purchased, onboarded, active); pause and cancel can happen at any time.
+
+## City exclusivity (Nov 25)
+- One pest company per city. A city is held by clients with status purchased, onboarded, active or paused; cancelling frees it. Cities compare loosely (`code/shared/city.js`: "St. Petersburg, FL" = "saint petersburg").
+- The sales page asks `GET /city-check?city=` before checkout. If the bot can't be reached, the visitor still goes to checkout.
+- After C1 and C3 the bot re-checks. A clash adds tag `barrier-city-conflict`, which GHL workflow C14 turns into a Kenny alert. The bot never refunds and never messages the client about it; Kenny decides.
+- C8b Payment Recovered calls `client/resume`: the client goes from paused back to active.
