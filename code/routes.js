@@ -55,6 +55,7 @@ const ROUTES = {
   'client/create': async ({ db, body, parsed, eventId }) => {
     const c = await upsertClient(db, parsed.contactId, { ...parsed.fields, status: 'purchased', plan: planFromTags(body) }, parsed.raw);
     await enqueue(db, { type: 'baseline_audit', clientId: c.id, eventId, dedupeKey: parsed.contactId });
+    await enqueue(db, { type: 'city_conflict_check', clientId: c.id, eventId, dedupeKey: `${parsed.contactId}:create` });
     return { clientId: c.id };
   },
   // C3: onboarding form in. Now there is an EIN, so the client's GHL sub-account can be made.
@@ -62,6 +63,7 @@ const ROUTES = {
     const c = await upsertClient(db, parsed.contactId, { ...parsed.fields, status: 'onboarded' }, parsed.raw);
     await enqueue(db, { type: 'create_subaccount', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     await enqueue(db, { type: 'access_check', clientId: c.id, eventId, dedupeKey: parsed.contactId });
+    await enqueue(db, { type: 'city_conflict_check', clientId: c.id, eventId, dedupeKey: `${parsed.contactId}:update` });
     return { clientId: c.id };
   },
   // C5b: kickoff call done. Month 1 starts.
@@ -72,6 +74,12 @@ const ROUTES = {
   },
   'client/pause': async ({ db, parsed }) => {
     const c = await upsertClient(db, parsed.contactId, { status: 'paused' }, parsed.raw);
+    return { clientId: c.id };
+  },
+  // C8b: a paused client's payment went through. Back to active.
+  'client/resume': async ({ db, parsed, eventId }) => {
+    const c = await upsertClient(db, parsed.contactId, { status: 'active' }, parsed.raw);
+    await enqueue(db, { type: 'resume', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     return { clientId: c.id };
   },
   'client/offboard': async ({ db, parsed, eventId }) => {

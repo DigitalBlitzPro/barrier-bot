@@ -51,6 +51,8 @@ test('pathFromWorkflow places a call that arrived without a path', () => {
   assert.equal(w('BARRIER | C1 Purchase'), 'client/create');
   assert.equal(w('BARRIER | C12 Software Connect'), 'client/software');
   assert.equal(w('BARRIER | C5b Kickoff Outcome'), 'client/activate');
+  assert.equal(w('BARRIER | C8b Payment Recovered'), 'client/resume');
+  assert.equal(w('BARRIER | C8 Payment Failed'), 'client/pause');
   assert.equal(w('BARRIER | Negative Review Approval'), 'review/approval');
   assert.equal(w('Something else'), null);
 });

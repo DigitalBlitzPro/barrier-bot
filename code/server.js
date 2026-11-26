@@ -9,6 +9,7 @@ const { withDb } = require('./shared/db');
 const { handle } = require('./routes');
 const { startWorker } = require('./worker');
 const { renderScan } = require('./scanPage');
+const { cityHolders } = require('./shared/city');
 
 const MAX_BODY = 1024 * 1024;
 
@@ -60,6 +61,7 @@ const WORKFLOW_PATHS = [
   [/\bC1\b|purchase/i, 'client/create'],
   [/\bC3\b|onboarding submitted/i, 'client/update'],
   [/\bC5b\b|kickoff outcome/i, 'client/activate'],
+  [/\bC8b\b|payment recovered/i, 'client/resume'],
   [/\bC8\b|payment failed/i, 'client/pause'],
   [/\bC9\b|cancelled/i, 'client/offboard'],
   [/review done/i, 'review/done'],
@@ -95,6 +97,19 @@ function readJson(req) {
 function createServer({ runWithDb = withDb } = {}) {
   return http.createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true });
+    // City check for the sales page: is this city still open? (One pest company per city.)
+    const cityMatch = req.method === 'GET' && /^\/city-check\?/.exec(req.url || '');
+    if (cityMatch) {
+      const city = new URL(req.url, 'http://x').searchParams.get('city') || '';
+      try {
+        const holders = await runWithDb((db) => cityHolders(db, city));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
+        return res.end(JSON.stringify({ city: city.slice(0, 60), available: !(holders && holders.length) }));
+      } catch (e) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ city: city.slice(0, 60), available: true, unchecked: true }));
+      }
+    }
     // A prospect's Territory Scan page.
     const scanMatch = req.method === 'GET' && /^\/scan\/([A-Za-z0-9_-]{10,40})\/?(?:\?.*)?$/.exec(req.url || '');
     if (scanMatch) {

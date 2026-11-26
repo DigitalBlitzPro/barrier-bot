@@ -31,11 +31,11 @@ test('client/create saves the event, the client and one baseline audit job', asy
   assert.equal(db.calls[2].params[0], 'baseline_audit');
 });
 
-test('client/update queues sub-account creation and the access check', async () => {
+test('client/update queues sub-account creation, the access check and the city check', async () => {
   const db = fakeDb();
   await handle(db, 'client/update', { contact_id: 'c1', 'Barrier - EIN': '123456789' });
   const types = db.calls.filter((c) => /barrier.jobs/.test(c.sql)).map((c) => c.params[0]);
-  assert.deepEqual(types, ['create_subaccount', 'access_check']);
+  assert.deepEqual(types, ['create_subaccount', 'access_check', 'city_conflict_check']);
 });
 
 test('client/software never stores a key in plain text', async () => {
