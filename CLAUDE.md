@@ -12,7 +12,10 @@ Read first: `STATUS.md`, then `DECISIONS.md`, then `README.md`.
 - Plain language. Say what was verified by running it and what was not.
 - State a rule once, in `DECISIONS.md`, and point to it.
 - Push to `main` only after `npm test` passes. No pull requests unless asked.
-- GHL is built by Grok and checked by Claude against the "Barrier GHL Build Spec" doc. Changes to GHL go through that doc, not straight into GHL.
+- GHL changes are made by Claude in the browser while Kenny is signed in (decided Nov 27). Workflows stay Draft; Kenny publishes.
+  Live (published) workflows are fixed as Draft copies that Kenny swaps in. Never edit Kenny's pre-existing non-BARRIER items.
+  Follow-up waits: Mon-Fri 9-6 contact timezone, set on each wait (not workflow-wide). Alerts go to Slack only:
+  #barrier-prospects, #barrier-onboarding, #barrier-client-management. No alert texts to Kenny.
 
 ## Traps carried over from Tänder
 - DataForSEO Labs endpoints take country-level locations only; ChatGPT answers reject `max_output_tokens`; "near me" searches can come back unlocalized.
