@@ -57,6 +57,7 @@ const ROUTES = {
     await enqueue(db, { type: 'baseline_audit', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     await enqueue(db, { type: 'city_conflict_check', clientId: c.id, eventId, dedupeKey: `${parsed.contactId}:create` });
     await enqueue(db, { type: 'set_term', clientId: c.id, eventId, dedupeKey: parsed.contactId });
+    if (parsed.raw['Barrier - Referred By']) await enqueue(db, { type: 'referral', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     return { clientId: c.id };
   },
   // C3: onboarding form in. Now there is an EIN, so the client's GHL sub-account can be made.
@@ -94,13 +95,39 @@ const ROUTES = {
     const c = await upsertClient(db, parsed.contactId, {}, {});
     const f = parseGhlWebhook(original).raw; // the keys themselves are only in the unredacted body
     const software = f['Barrier - Job Software'] || 'Other';
-    const secret = JSON.stringify({ key: f['Barrier - Software API Key'] || null, token: f['Barrier - Software API Token'] || null });
+    const secret = JSON.stringify({ key: f['Barrier - Software API Key'] || null, token: f['Barrier - Software API Token'] || null,
+      subdomain: f['Barrier - Software Subdomain'] || null });
     await db.query(
       `insert into barrier.client_connections (client_id, software, secret_enc, status) values ($1, $2, $3, 'untested')
        on conflict (client_id) do update set software = excluded.software, secret_enc = excluded.secret_enc, status = 'untested', updated_at = now()`,
       [c.id, software, encrypt(secret)]);
     await enqueue(db, { type: 'software_test', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     return { clientId: c.id, software };
+  },
+  // Sub-account token form (Kenny or Grok fills it after making the client's sub-account). Encrypted before saving.
+  // Also finishes a waiting create_subaccount job, so a sub-account made by hand never gets made twice.
+  'client/ghl-token': async ({ db, parsed, original }) => {
+    const c = await upsertClient(db, parsed.contactId, {}, {});
+    const f = parseGhlWebhook(original).raw;
+    const locationId = String(f['Barrier - Subaccount ID'] || '').trim();
+    const token = String(f['Barrier - Subaccount Token'] || '').trim();
+    if (!/^[A-Za-z0-9]{10,40}$/.test(locationId) || token.length < 20) return { error: 'missing sub-account id or token' };
+    await db.query('update barrier.clients set ghl_location_id = $2, ghl_location_token_enc = $3, updated_at = now() where id = $1', [c.id, locationId, encrypt(token)]);
+    await db.query(`update barrier.jobs set status = 'done', finished_at = now(), result = '{"exists":"set by form"}'::jsonb
+      where client_id = $1 and type = 'create_subaccount' and status = 'pending'`, [c.id]);
+    // Release any month's work that was waiting on this token.
+    await db.query(`update barrier.jobs set run_after = now() where client_id = $1 and status = 'pending' and error like 'NEEDS SETUP%'`, [c.id]);
+    return { clientId: c.id, locationId };
+  },
+  // Website login form: WordPress address, username and an Application Password (never the real password).
+  'client/website-login': async ({ db, parsed, original }) => {
+    const c = await upsertClient(db, parsed.contactId, {}, {});
+    const f = parseGhlWebhook(original).raw;
+    const login = { url: f['Barrier - Website Login URL'] || null, user: f['Barrier - Website Username'] || null, appPassword: f['Barrier - Website App Password'] || null };
+    if (!login.user || !login.appPassword) return { error: 'missing username or application password' };
+    await db.query('update barrier.clients set website_login_enc = $2, updated_at = now() where id = $1', [c.id, encrypt(JSON.stringify(login))]);
+    await db.query(`update barrier.jobs set run_after = now() where client_id = $1 and type = 'monthly_work' and status = 'pending'`, [c.id]);
+    return { clientId: c.id };
   },
   // Client sub-account workflows (template): reviews and photos. Keyed by the sub-account's location id.
   'review/done': async ({ db, parsed, eventId }) => {
@@ -125,7 +152,8 @@ const ROUTES = {
 // license photos). Only standard contact fields, "Barrier - " fields, customData and workflow info are kept.
 // Software API keys are never kept in plain text, not even in the event log.
 // The job-software login (Barrier - Software Username/Password) goes to Kenny's password manager, never to the bot.
-const SECRET_FIELDS = ['Barrier - Software API Key', 'Barrier - Software API Token', 'Barrier - Software Username', 'Barrier - Software Password'];
+const SECRET_FIELDS = ['Barrier - Software API Key', 'Barrier - Software API Token', 'Barrier - Software Username', 'Barrier - Software Password',
+  'Barrier - Subaccount Token', 'Barrier - Website App Password'];
 const KEEP = new Set(['contact_id', 'first_name', 'last_name', 'full_name', 'name', 'email', 'phone', 'company_name', 'tags',
   'address1', 'city', 'state', 'postal_code', 'country', 'timezone', 'contact_source', 'contact_type', 'date_created',
   'location', 'workflow', 'customData']);

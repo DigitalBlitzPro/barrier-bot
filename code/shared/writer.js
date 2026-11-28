@@ -38,6 +38,17 @@ const RULES = `Rules:
 - Plain American English, short sentences, written for homeowners. No hashtags, no emojis.
 - Never call the company's service "Barrier" or "Blitz Barrier"; that's our product name, not theirs.`;
 
+// Keeps only simple tags (h2, h3, p, ul, ol, li, strong, em, br) and drops every attribute, script and style.
+function sanitizeHtml(html) {
+  return String(html || '')
+    .replace(/<(script|style|iframe|object|embed)[\s\S]*?<\/\1>/gi, '')
+    .replace(/<\/?([a-z0-9]+)[^>]*>/gi, (m, tag) => {
+      const t = tag.toLowerCase();
+      if (!['h2', 'h3', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'br'].includes(t)) return '';
+      return m.startsWith('</') ? `</${t}>` : `<${t}>`;
+    });
+}
+
 function parseJson(text) {
   const m = /\{[\s\S]*\}/.exec(text);
   if (!m) throw new Error('writer: no JSON in answer');
@@ -66,6 +77,7 @@ async function writePage(c, { kind, service, city, question }, deps = {}) {
   });
   const page = parseJson(r.text);
   for (const k of ['title', 'metaDescription', 'h1', 'html']) page[k] = safeWording(String(page[k] || ''), f.approvedSafetyWording);
+  page.html = sanitizeHtml(page.html);
   page.slug = String(page.slug || page.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
   if (!page.title || page.html.length < 500) throw new Error('writer: page came back too short');
   return { page, usd: r.usd };
@@ -119,4 +131,4 @@ const POST_TOPICS = {
   fall: ['mice moving indoors', 'spiders and fall invaders', 'sealing entry points before winter', 'stink bugs and boxelder bugs'],
 };
 
-module.exports = { safeWording, writeGbpPost, writePage, pickPages, pickQuestion, seasonOf, POST_TOPICS, facts, ARTICLE_QUESTIONS };
+module.exports = { sanitizeHtml, safeWording, writeGbpPost, writePage, pickPages, pickQuestion, seasonOf, POST_TOPICS, facts, ARTICLE_QUESTIONS };

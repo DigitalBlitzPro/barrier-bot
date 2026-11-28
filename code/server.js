@@ -10,6 +10,7 @@ const { handle } = require('./routes');
 const { startWorker } = require('./worker');
 const { startScheduler } = require('./scheduler');
 const { renderScan } = require('./scanPage');
+const { renderDash, loadDash, renderWork } = require('./dashPage');
 const { cityHolders } = require('./shared/city');
 
 const MAX_BODY = 1024 * 1024;
@@ -59,6 +60,8 @@ async function checkKeys() {
 const WORKFLOW_PATHS = [
   [/\bS4\b|territory scan/i, 'territory-scan'],
   [/\bC12\b|software connect/i, 'client/software'],
+  [/sub-?account token/i, 'client/ghl-token'],
+  [/website login/i, 'client/website-login'],
   [/\bC1\b|purchase/i, 'client/create'],
   [/\bC3\b|onboarding submitted/i, 'client/update'],
   [/\bC5b\b|kickoff outcome/i, 'client/activate'],
@@ -123,6 +126,23 @@ function createServer({ runWithDb = withDb } = {}) {
       } catch (e) {
         console.error('[scan page]', e.message);
         res.writeHead(500, { 'Content-Type': 'text/plain' }); return res.end('Something went wrong loading this scan.');
+      }
+    }
+    // A client's private dashboard, and previews of pages written for them.
+    const dashMatch = req.method === 'GET' && /^\/(dash|work)\/([A-Za-z0-9_-]{10,40})\/?(?:\?.*)?$/.exec(req.url || '');
+    if (dashMatch) {
+      try {
+        const html = await runWithDb(async (db) => {
+          if (dashMatch[1] === 'dash') { const v = await loadDash(db, dashMatch[2]); return v && renderDash(v); }
+          const r = await db.query(`select w.*, c.company from barrier.work_items w join barrier.clients c on c.id = w.client_id where w.token = $1`, [dashMatch[2]]);
+          return r.rows[0] ? renderWork(r.rows[0], { company: r.rows[0].company }) : null;
+        });
+        if (!html) { res.writeHead(404, { 'Content-Type': 'text/plain' }); return res.end('Not found'); }
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, max-age=300', 'X-Robots-Tag': 'noindex' });
+        return res.end(html);
+      } catch (e) {
+        console.error('[dash page]', e.message);
+        res.writeHead(500, { 'Content-Type': 'text/plain' }); return res.end('Something went wrong loading this page.');
       }
     }
     // Key check: tests each outside service with a free, read-only call. Shows only ok / the error, never a key.

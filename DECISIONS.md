@@ -41,3 +41,32 @@ The one place for every rule. Newest decisions win; date each one.
 - Minimum term: New Website plan 12 months; the standard plan and Ads Client Rate 90 days, then month to month.
 - After C1 the bot writes "Barrier - Plan Name" and "Barrier - Term End" (text, e.g. "February 26, 2027") onto the contact, for the cancel-request workflow.
 - Paused client: the bot's work for them waits (re-checked daily) until C8b resumes them. Cancelled: their waiting work is dropped.
+
+## Monthly rhythm (Nov 28)
+- Client months count from kickoff (`activated_at`, set by C5b). The scheduler (`code/scheduler.js`, hourly) queues:
+  day 0 `monthly_work`, day 26 `monthly_snapshot`, day 27 `monthly_report`. Software sync every 2 hours for connected clients.
+- Monthly work: 4 Google posts (a week apart, 15:00 UTC, using unused tech photos), 2 local pages (growth services first,
+  registered city first, never the same service and city twice) and 1 article (a homeowner question not used before).
+- Google posts go through the client's GHL Social Planner using that sub-account's Private Integration token.
+  Pages and articles publish to WordPress when a login (Application Password) is on file; otherwise they wait as previews
+  (`/work/<token>`) and #barrier-client-management gets the links once.
+- Anything the bot can't do without Kenny (no sub-account, token or Google connection) waits and re-checks daily;
+  #barrier-onboarding hears about it once. Writing already paid for is kept.
+
+## Monthly report (Nov 28)
+- Compares this month's snapshot with last month's (or the baseline). Writes the report fields onto the client's contact in
+  Digital Blitz's GHL and tags `barrier-report-ready`; C6 sends it.
+- Milestone (tag `barrier-milestone`): map coverage crosses 25/50/75%, first time named by AI, or #1 at the center point.
+- At risk (tag `barrier-at-risk` + Slack): coverage down 10+ points, rating falls under 4.0, or nothing went out that month.
+- "Replies" = new reviews that month. It relies on GHL Reviews AI auto-reply being on in every sub-account (template setting).
+
+## Review engine (Nov 28)
+- Finished jobs from FieldRoutes or GorillaDesk become contacts in the client's sub-account with tag `review-eligible`;
+  the template's Review Engine asks. A customer who reviewed or said "do not ask" is never asked again; one ask per job.
+- Jobber clients use Jobber's own review link (Software Status "Jobber Link"). Other software: not automatic yet.
+- Tech credit: a review is credited to the tech on the job that triggered the ask. Leaderboard on the dashboard.
+- Template webhooks send `customData`: tech, rating, review_text, reviewer, photo_url, note.
+
+## Referrals (Nov 28)
+- C1 with "Barrier - Referred By" (Client ID or company): the bot finds the referrer and tells #barrier-client-management.
+  Kenny applies the free month. Like refunds, the bot never moves money.
