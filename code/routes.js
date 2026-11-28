@@ -56,6 +56,7 @@ const ROUTES = {
     const c = await upsertClient(db, parsed.contactId, { ...parsed.fields, status: 'purchased', plan: planFromTags(body) }, parsed.raw);
     await enqueue(db, { type: 'baseline_audit', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     await enqueue(db, { type: 'city_conflict_check', clientId: c.id, eventId, dedupeKey: `${parsed.contactId}:create` });
+    await enqueue(db, { type: 'set_term', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     return { clientId: c.id };
   },
   // C3: onboarding form in. Now there is an EIN, so the client's GHL sub-account can be made.

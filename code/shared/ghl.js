@@ -42,6 +42,21 @@ class Ghl {
     return this.call('PUT', `/contacts/${contactId}`, { customFields });
   }
 
+  // Same as setFields, but by the field's name as shown in GHL ("Barrier - Term End"), for fields whose key we don't know.
+  async setFieldsByName(contactId, fields) {
+    if (!this.fieldsByName) {
+      const r = await this.call('GET', `/locations/${LOCATION_ID()}/customFields`);
+      this.fieldsByName = Object.fromEntries((r.customFields || []).map((f) => [String(f.name).trim().toLowerCase(), f.id]));
+    }
+    const customFields = [];
+    for (const [name, value] of Object.entries(fields)) {
+      const id = this.fieldsByName[name.trim().toLowerCase()];
+      if (!id) throw new Error(`GHL custom field "${name}" not found. Create it in GHL (Settings > Custom Fields) as a text field.`);
+      customFields.push({ id, field_value: value });
+    }
+    return this.call('PUT', `/contacts/${contactId}`, { customFields });
+  }
+
   async addTags(contactId, tags) {
     return this.call('POST', `/contacts/${contactId}/tags`, { tags });
   }

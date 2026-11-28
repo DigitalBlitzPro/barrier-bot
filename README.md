@@ -18,10 +18,11 @@ One always-on Node process on Railway (`npm start`):
 | GHL workflow | Path | What it queues |
 |---|---|---|
 | S4 Territory Scan | `territory-scan` | `territory_scan` |
-| C1 Purchase | `client/create` | `baseline_audit` |
-| C3 Onboarding Submitted | `client/update` | `create_subaccount`, `access_check` |
+| C1 Purchase | `client/create` | `baseline_audit`, `city_conflict_check`, `set_term` |
+| C3 Onboarding Submitted | `client/update` | `create_subaccount`, `access_check`, `city_conflict_check` |
 | C5b Kickoff Outcome (Showed) | `client/activate` | `start_month1` |
-| C8 Payment Failed (day 10) | `client/pause` | nothing, status only |
+| C8 Payment Failed (day 10) | `client/pause` | nothing; the client's waiting work holds |
+| C8b Payment Recovered | `client/resume` | `resume` |
 | C9 Cancelled | `client/offboard` | `offboard` |
 | C12 Software Connect | `client/software` | `software_test` (key stored encrypted) |
 | Template: Review Done Reply | `review/done` | `review_done` |

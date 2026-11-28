@@ -6,7 +6,7 @@ The one place for every rule. Newest decisions win; date each one.
 - New repo, copied from the Tänder SEO agent where it works. Tänder is not changed.
 - One Railway service runs the webhooks, the worker and the schedule. Supabase Postgres, schema `barrier`.
 - Fully hands-off: no approval dashboard and no Slack sign-offs. Everything that passes the automatic checks publishes.
-  Only failures reach Kenny, as Todoist tasks.
+  Only failures reach Kenny (see Alerts).
 - Google Business Profile posts go out through each client's GHL sub-account (Social Planner), not the Google API.
 
 ## Voice (2026-11-24)
@@ -30,3 +30,14 @@ The one place for every rule. Newest decisions win; date each one.
 - The sales page asks `GET /city-check?city=` before checkout. If the bot can't be reached, the visitor still goes to checkout.
 - After C1 and C3 the bot re-checks. A clash adds tag `barrier-city-conflict`, which GHL workflow C14 turns into a Kenny alert. The bot never refunds and never messages the client about it; Kenny decides.
 - C8b Payment Recovered calls `client/resume`: the client goes from paused back to active.
+
+## Alerts (Nov 27)
+- No texts to Kenny. Alerts go to three private Slack channels: #barrier-prospects, #barrier-onboarding, #barrier-client-management.
+- GHL workflows post with the Slack action. The bot posts as the "Barrier Bot" Slack app (`code/shared/alert.js`): SLACK_BOT_TOKEN plus
+  SLACK_CHANNEL_PROSPECTS / SLACK_CHANNEL_ONBOARDING / SLACK_CHANNEL_CLIENT_MANAGEMENT (channel IDs) in Railway. Until set, alerts only go to the log.
+- A job that fails for good alerts once: Territory Scan to #barrier-prospects, everything else to #barrier-client-management.
+
+## Terms and lifecycle (Nov 28)
+- Minimum term: New Website plan 12 months; the standard plan and Ads Client Rate 90 days, then month to month.
+- After C1 the bot writes "Barrier - Plan Name" and "Barrier - Term End" (text, e.g. "February 26, 2027") onto the contact, for the cancel-request workflow.
+- Paused client: the bot's work for them waits (re-checked daily) until C8b resumes them. Cancelled: their waiting work is dropped.

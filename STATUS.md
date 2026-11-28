@@ -1,4 +1,4 @@
-# Status (updated 2026-11-25)
+# Status (updated 2026-11-28)
 
 ## Verified by running it
 - `npm test`: 10 tests pass (payload parsing, webhook secret, routes, encryption), no network.
@@ -16,8 +16,13 @@
 - Territory Scan bot built (2026-11-25): finds the business on Google Maps, checks "pest control" at 49 points (7x7, 1 mile apart), asks ChatGPT, Gemini, Perplexity and Claude 3 homeowner questions, compares reviews with the map leaders, writes a funny verdict (Claude Haiku, facts only), saves the scan, serves it at /scan/<token>, sets Barrier - Scan Link and Barrier - Offer Deadline (+14 days) in GHL and adds barrier-scan-ready. Verified with offline tests (fake DataForSEO and database) and a rendered sample page on phone width. NOT yet run against the real services.
 - `/health/keys` checks DataForSEO, Anthropic and GHL with free read-only calls.
 
+- Lifecycle jobs built (2026-11-28, offline tests only): `set_term` (plan name + minimum-term end onto the contact after C1),
+  `resume`, `offboard`; the worker holds a paused client's work and skips a cancelled client's. A job that fails for good posts a Slack alert.
+  Needs before it works live: GHL text fields "Barrier - Plan Name" and "Barrier - Term End"; the Barrier Bot Slack app token and channel IDs in Railway.
+
 ## Not done yet
-- No bots yet: every queued job waits until its handler exists.
+- Still no handler (jobs wait): baseline_audit, create_subaccount, access_check, start_month1, software_test, review_done,
+  review_approval, review_do_not_ask, photo_intake. No monthly report or SEO work job yet.
 
 ## Next
 1. First real Territory Scan from the live form; check cost and the page.
