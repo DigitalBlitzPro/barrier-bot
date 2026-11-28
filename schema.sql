@@ -136,3 +136,80 @@ alter table barrier.scans enable row level security;
 grant select, insert, update, delete on barrier.scans to barrier_bot;
 grant usage, select on sequence barrier.scans_id_seq to barrier_bot;
 create policy barrier_bot_all on barrier.scans for all to barrier_bot using (true) with check (true);
+
+-- Monthly work (migration barrier_monthly_work, 2026-11-28).
+alter table barrier.clients add column if not exists activated_at timestamptz;        -- kickoff done (C5b); month cycles count from here
+alter table barrier.clients add column if not exists dash_token text unique;           -- private link to the client's dashboard
+alter table barrier.clients add column if not exists ghl_location_token_enc text;      -- the client sub-account's Private Integration token, encrypted
+alter table barrier.clients add column if not exists website_login_enc text;           -- WordPress user + application password, encrypted
+
+-- Map, AI and review measurements: one baseline after purchase, then one per month.
+create table if not exists barrier.snapshots (
+  id          bigserial primary key,
+  client_id   bigint not null references barrier.clients(id),
+  kind        text not null check (kind in ('baseline','monthly')),
+  cycle       int not null default 0,
+  grid_pct    int,
+  avg_rank    numeric(5,1),
+  ai_hits     int,
+  ai_asked    int,
+  reviews     int,
+  rating      numeric(3,2),
+  data        jsonb not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists snapshots_client on barrier.snapshots (client_id, created_at desc);
+
+-- Everything the bot makes for a client: Google posts, local pages, articles, the month-1 site audit.
+create table if not exists barrier.work_items (
+  id            bigserial primary key,
+  client_id     bigint not null references barrier.clients(id),
+  cycle         int not null default 0,
+  kind          text not null check (kind in ('gbp_post','local_page','article','site_audit')),
+  status        text not null default 'draft' check (status in ('draft','ready','scheduled','published','held','failed')),
+  title         text,
+  body          jsonb not null default '{}',
+  token         text unique,                 -- private preview link
+  scheduled_for timestamptz,
+  published_at  timestamptz,
+  external_id   text,
+  error         text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists work_client_cycle on barrier.work_items (client_id, cycle, kind);
+
+-- Job photos techs text in (template "Tech Photo Intake").
+create table if not exists barrier.photos (
+  id              bigserial primary key,
+  client_id       bigint references barrier.clients(id),
+  ghl_location_id text,
+  url             text not null,
+  tech            text,
+  note            text,
+  used_in         bigint references barrier.work_items(id),
+  received_at     timestamptz not null default now()
+);
+
+-- Review engine events from the client sub-accounts (asked, done, do not ask, negative-review approval).
+create table if not exists barrier.review_events (
+  id              bigserial primary key,
+  client_id       bigint references barrier.clients(id),
+  ghl_location_id text,
+  ghl_contact_id  text,
+  tech            text,
+  kind            text not null check (kind in ('asked','done','do_not_ask','approval')),
+  data            jsonb not null default '{}',
+  at              timestamptz not null default now()
+);
+create index if not exists review_events_client on barrier.review_events (client_id, at);
+
+do $$ declare t text; begin
+  foreach t in array array['snapshots','work_items','photos','review_events'] loop
+    execute format('alter table barrier.%I enable row level security', t);
+    execute format('grant select, insert, update, delete on barrier.%I to barrier_bot', t);
+    execute format('grant usage, select on sequence barrier.%I_id_seq to barrier_bot', t);
+    execute format('create policy barrier_bot_all on barrier.%I for all to barrier_bot using (true) with check (true)', t);
+  end loop;
+end $$;
+revoke all on all tables in schema barrier from anon, authenticated;

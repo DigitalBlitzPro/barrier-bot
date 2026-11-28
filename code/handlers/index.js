@@ -2,6 +2,7 @@
 const { territoryScan } = require('./territoryScan');
 const { cityConflictCheck } = require('./cityConflict');
 const { setTerm, resume, offboard } = require('./lifecycle');
+const { baselineAudit, monthlySnapshot } = require('./measureJobs');
 
 module.exports = {
   territory_scan: territoryScan,
@@ -9,4 +10,6 @@ module.exports = {
   set_term: setTerm,
   resume,
   offboard,
+  baseline_audit: baselineAudit,
+  monthly_snapshot: monthlySnapshot,
 };

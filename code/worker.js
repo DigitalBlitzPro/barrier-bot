@@ -5,7 +5,7 @@
 // A job that fails for good posts a Slack alert (scan failures to #barrier-prospects, the rest to #barrier-client-management).
 
 const { withDb } = require('./shared/db');
-const { claim, finish, fail } = require('./shared/queue');
+const { claim, finish, fail, NeedsSetup } = require('./shared/queue');
 const { alert } = require('./shared/alert');
 const handlers = require('./handlers');
 
@@ -49,6 +49,17 @@ async function runOne(db, { notify = alert, list = handlers } = {}) {
     const result = await handler({ db, job });
     await finish(db, job.id, result);
   } catch (e) {
+    if (e instanceof NeedsSetup) {
+      // Waiting on Kenny: alert the first time only, then check again tomorrow without using up a try.
+      const first = !String(job.error || '').startsWith('NEEDS SETUP');
+      await db.query(`update barrier.jobs set status = 'pending', attempts = attempts - 1, error = $2, run_after = now() + interval '1 day' where id = $1`,
+        [job.id, `NEEDS SETUP: ${e.message}`]);
+      if (first) {
+        const who = client ? `${client.company || 'unknown company'}` : 'a client';
+        await notify(job.type === 'territory_scan' ? 'prospects' : 'onboarding', `Setup needed for ${who} (${job.type}): ${e.message} The bot will check again daily.`);
+      }
+      return true;
+    }
     const retry = await fail(db, job, e);
     console.error(`[job ${job.id} ${job.type}] ${retry ? 'will retry' : 'FAILED'}: ${e.message}`);
     if (!retry) await failureAlert(job, client, e, notify);

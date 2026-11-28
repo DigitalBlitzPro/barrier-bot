@@ -70,6 +70,7 @@ const ROUTES = {
   // C5b: kickoff call done. Month 1 starts.
   'client/activate': async ({ db, parsed, eventId }) => {
     const c = await upsertClient(db, parsed.contactId, { status: 'active' }, parsed.raw);
+    await db.query('update barrier.clients set activated_at = coalesce(activated_at, now()) where id = $1', [c.id]);
     await enqueue(db, { type: 'start_month1', clientId: c.id, eventId, dedupeKey: parsed.contactId });
     return { clientId: c.id };
   },

@@ -35,4 +35,19 @@ async function fail(db, job, err) {
   return retry;
 }
 
-module.exports = { enqueue, claim, finish, fail };
+// Queues a job only if one with this type and key has never existed (any status). For scheduled monthly work.
+async function enqueueOnce(db, { type, clientId = null, dedupeKey, runAfter = null, maxAttempts = 3 }) {
+  const r = await db.query(
+    `insert into barrier.jobs (type, client_id, dedupe_key, run_after, max_attempts)
+     select $1, $2, $3, coalesce($4::timestamptz, now()), $5
+     where not exists (select 1 from barrier.jobs where type = $1 and dedupe_key = $3)
+     returning id`,
+    [type, clientId, dedupeKey, runAfter, maxAttempts]);
+  return r.rows[0] ? r.rows[0].id : null;
+}
+
+// Thrown by a bot when something only Kenny can set up is missing (a token, a GHL field, a connected account).
+// The worker alerts once and checks again the next day, without using up the job's tries.
+class NeedsSetup extends Error {}
+
+module.exports = { enqueue, enqueueOnce, claim, finish, fail, NeedsSetup };

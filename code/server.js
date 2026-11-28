@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { withDb } = require('./shared/db');
 const { handle } = require('./routes');
 const { startWorker } = require('./worker');
+const { startScheduler } = require('./scheduler');
 const { renderScan } = require('./scanPage');
 const { cityHolders } = require('./shared/city');
 
@@ -165,6 +166,7 @@ if (require.main === module) {
   const port = Number(process.env.PORT || 3000);
   createServer().listen(port, () => console.log(`Barrier Bot listening on ${port}`));
   startWorker();
+  startScheduler(withDb);
 }
 
 module.exports = { createServer, splitUrl, secretOk, pathFromWorkflow };

@@ -84,3 +84,19 @@ test('alert without Slack set up only logs, and never throws', async () => {
   const ok = await alert('clients', 'hello', { env: { SLACK_BOT_TOKEN: 'x', SLACK_CHANNEL_CLIENT_MANAGEMENT: 'C1' }, fetchImpl: async () => ({ status: 200, json: async () => ({ ok: true }) }) });
   assert.equal(ok.sent, true);
 });
+
+test('worker: a job waiting on setup re-checks daily, keeps its tries, and alerts only once', async () => {
+  const { NeedsSetup } = require('../code/shared/queue');
+  const notes = [];
+  const notify = async (ch, text) => notes.push([ch, text]);
+  const list = { monthly_work: async () => { throw new NeedsSetup('Paste the sub-account token.'); } };
+  const client = { id: 2, status: 'active', company: 'Bug Busters' };
+  let db = workerDb({ id: 1, type: 'monthly_work', client_id: 2, attempts: 1, max_attempts: 3 }, client);
+  await runOne(db, { list, notify });
+  assert.ok(db.calls.some((s) => /attempts = attempts - 1/.test(s)));
+  assert.equal(notes[0][0], 'onboarding');
+  assert.match(notes[0][1], /Setup needed for Bug Busters/);
+  db = workerDb({ id: 1, type: 'monthly_work', client_id: 2, attempts: 1, max_attempts: 3, error: 'NEEDS SETUP: Paste the sub-account token.' }, client);
+  await runOne(db, { list, notify });
+  assert.equal(notes.length, 1);
+});
